@@ -1,220 +1,128 @@
-# 🐳 DataPulse - Complete Docker Setup
+# 🐳 DataPulse Backend - Docker Deployment
 
-## 🚀 Quick Start
+## 🚀 Quick Start with Docker
 
 ### Prerequisites
 - Docker installed on your system
 - Docker Compose (included with Docker Desktop)
 
-### 1. Start Both Services (Recommended)
+### 1. Build and Run with Docker Compose (Recommended)
 
 ```bash
-# From the root directory (data_health/)
+# Start the backend service
 docker compose up -d
 
 # Check status
 docker compose ps
 
 # View logs
-docker compose logs -f
+docker compose logs -f backend
 
-# Stop all services
+# Stop the service
 docker compose down
 ```
 
-### 2. Individual Service Management
+### 2. Manual Docker Commands
 
-#### Backend Only
 ```bash
-cd datapulse-backend
-docker compose up -d
+# Build the image
+docker build -t datapulse-backend .
+
+# Run the container
+docker run -d -p 8000:8000 --name datapulse-backend datapulse-backend
+
+# Check container status
+docker ps
+
+# View logs
+docker logs datapulse-backend
+
+# Stop and remove container
+docker stop datapulse-backend
+docker rm datapulse-backend
 ```
 
-#### Frontend Only
+## 📊 Testing the Containerized Backend
+
+### Health Check
 ```bash
-cd datapulse-frontend
-docker compose up -d
+curl http://localhost:8000/
+# Expected: {"status":"ok"}
 ```
 
-## 📊 Service Architecture
-
-### Backend (FastAPI)
-- **Port**: 8000
-- **Base Image**: Python 3.10-slim
-- **Framework**: FastAPI + Uvicorn
-- **Features**: ML-powered data analysis, outlier detection, drift monitoring
-
-### Frontend (React)
-- **Port**: 3001
-- **Base Image**: Node.js 18 (build) + Nginx Alpine (serve)
-- **Framework**: React with Plotly.js charts
-- **Features**: File upload, data visualization, interactive dashboards
+### Upload Test
+```bash
+curl -X POST http://localhost:8000/upload \
+  -F "file=@data2.csv"
+```
 
 ## 🔧 Configuration
 
+### Environment Variables
+- `PYTHONUNBUFFERED=1`: Ensures Python output is not buffered
+
 ### Ports
-- **Backend API**: `http://localhost:8000`
-- **Frontend App**: `http://localhost:3001`
-- **Backend Health**: `http://localhost:8000/`
-- **Frontend Health**: `http://localhost:3001/`
+- **Host**: 8000
+- **Container**: 8000
 
 ### Volumes
-- **Backend Data**: `./datapulse-backend/data:/app/data`
-- **Frontend Build**: Built into container (no volume needed)
-
-### Environment Variables
-- **Backend**: `PYTHONUNBUFFERED=1`
-- **Frontend**: None (static build)
+- `./data:/app/data`: Mounts local data directory for CSV files
 
 ## 🏗️ Docker Architecture
 
-### Multi-Stage Frontend Build
-1. **Build Stage**: Node.js 18 environment
-   - Install dependencies
-   - Build production bundle
-2. **Serve Stage**: Nginx Alpine
-   - Serve static files
-   - Lightweight production server
+### Base Image
+- **Python 3.10-slim**: Lightweight Python runtime
+- **Size**: ~40MB base + dependencies
 
-### Backend Build
-1. **Base**: Python 3.10-slim
-2. **Dependencies**: Install from requirements.txt
-3. **Source**: Copy application code
+### Layers
+1. **Base Python**: Official Python slim image
+2. **Dependencies**: Install requirements.txt
+3. **Source Code**: Copy application files
 4. **Runtime**: Uvicorn ASGI server
 
-## 🚀 Production Deployment
-
-### Scaling
-```bash
-# Scale backend instances
-docker compose up -d --scale backend=3
-
-# Scale frontend instances (behind load balancer)
-docker compose up -d --scale frontend=2
-```
-
-### Environment-Specific Configs
-```bash
-# Development
-docker compose -f docker-compose.yml up -d
-
-# Production
-docker compose -f docker-compose.prod.yml up -d
-```
-
-## 🔍 Monitoring & Health Checks
-
-### Backend Health
+### Health Checks
 - **Endpoint**: `GET /`
-- **Expected**: `{"status":"ok"}`
-- **Check**: Every 30 seconds
+- **Interval**: 30 seconds
+- **Timeout**: 10 seconds
+- **Retries**: 3
 
-### Frontend Health
-- **Endpoint**: `GET /`
-- **Expected**: HTML content
-- **Check**: Every 30 seconds
+## 🚀 Production Considerations
 
-### Logs
-```bash
-# All services
-docker compose logs -f
+### Security
+- Run as non-root user (add to Dockerfile)
+- Use specific Python version tags
+- Scan for vulnerabilities: `docker scout quickview`
 
-# Specific service
-docker compose logs -f backend
-docker compose logs -f frontend
-```
+### Performance
+- Multi-stage builds for smaller images
+- Alpine Linux for minimal footprint
+- Gunicorn + Uvicorn workers for production
 
-## 🛠️ Development Workflow
-
-### 1. Code Changes
-```bash
-# Backend changes require rebuild
-docker compose build backend
-docker compose up -d backend
-
-# Frontend changes require rebuild
-docker compose build frontend
-docker compose up -d frontend
-```
-
-### 2. Hot Reload (Development)
-```bash
-# Run backend with volume mount for hot reload
-docker run -v $(pwd)/datapulse-backend:/app -p 8000:8000 datapulse-backend
-
-# Frontend: Use npm start in development
-cd datapulse-frontend
-npm start
-```
-
-## 🔒 Security Considerations
-
-### Network Isolation
-- Services communicate via Docker network
-- No direct external access to backend
-- Frontend serves as reverse proxy
-
-### Resource Limits
-```yaml
-# Add to docker-compose.yml
-services:
-  backend:
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: '0.5'
-```
-
-## 📁 File Structure
-
-```
-data_health/
-├── docker-compose.yml           # Main orchestration
-├── datapulse-backend/
-│   ├── Dockerfile              # Backend container
-│   ├── docker-compose.yml      # Backend service
-│   ├── requirements.txt        # Python dependencies
-│   └── app/                    # FastAPI application
-├── datapulse-frontend/
-│   ├── Dockerfile              # Frontend container
-│   ├── docker-compose.yml      # Frontend service
-│   ├── package.json            # Node.js dependencies
-│   └── src/                    # React application
-└── README-Docker.md            # This file
-```
-
-## 🌐 Access URLs
-
-### Development
-- **Frontend**: `http://localhost:3000` (npm start)
-- **Backend**: `http://localhost:8000` (uvicorn)
-
-### Docker
-- **Frontend**: `http://localhost:3001`
-- **Backend**: `http://localhost:8000`
-
-## 🎯 Next Steps
-
-1. **Database Integration**: Add PostgreSQL/Redis containers
-2. **Monitoring Stack**: Prometheus + Grafana
-3. **CI/CD Pipeline**: GitHub Actions + Docker Hub
-4. **Kubernetes**: Production orchestration
-5. **SSL/TLS**: HTTPS with Let's Encrypt
-6. **Load Balancing**: Traefik or HAProxy
+### Monitoring
+- Health check endpoint
+- Log aggregation
+- Metrics collection
 
 ## 🔍 Troubleshooting
 
 ### Common Issues
 
-#### Port Conflicts
+#### Port Already in Use
 ```bash
-# Check port usage
+# Check what's using port 8000
 lsof -i :8000
-lsof -i :3001
 
-# Use different ports
-docker compose up -d -p 8001:8000 -p 3002:80
+# Stop conflicting service or use different port
+docker run -p 8001:8000 datapulse-backend
+```
+
+#### Container Won't Start
+```bash
+# Check logs
+docker compose logs backend
+
+# Check container status
+docker compose ps
 ```
 
 #### Build Failures
@@ -223,25 +131,33 @@ docker compose up -d -p 8001:8000 -p 3002:80
 docker builder prune
 
 # Rebuild without cache
-docker compose build --no-cache
+docker build --no-cache -t datapulse-backend .
 ```
 
-#### Container Won't Start
-```bash
-# Check logs
-docker compose logs
+## 📁 File Structure
 
-# Check container status
-docker compose ps
+```
+datapulse-backend/
+├── Dockerfile              # Container definition
+├── docker-compose.yml      # Service orchestration
+├── .dockerignore          # Build exclusions
+├── requirements.txt        # Python dependencies
+├── app/                   # Application code
+│   ├── main.py           # FastAPI app
+│   └── utils.py          # Analysis functions
+└── data/                  # CSV files (mounted volume)
 ```
 
-## 🎉 Success!
+## 🌐 Integration with Frontend
 
-Your DataPulse application is now fully containerized with:
-- ✅ **Backend**: FastAPI + ML algorithms
-- ✅ **Frontend**: React + Plotly.js
-- ✅ **Orchestration**: Docker Compose
-- ✅ **Health Checks**: Automated monitoring
-- ✅ **Production Ready**: Multi-stage builds
+The containerized backend is configured with CORS to allow connections from:
+- `http://localhost:3000` (React development server)
+- Update `docker-compose.yml` for production URLs
 
-**Access your app at**: `http://localhost:3001` 🚀
+## 🎯 Next Steps
+
+1. **Frontend Containerization**: Create Docker setup for React app
+2. **Database Integration**: Add PostgreSQL/Redis containers
+3. **CI/CD Pipeline**: Automated testing and deployment
+4. **Kubernetes**: Production orchestration
+5. **Monitoring**: Prometheus + Grafana setup
